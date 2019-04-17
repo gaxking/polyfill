@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title></title>
+  </head>
+  <body>
+
+  </body>
+  <script>
+function myPromise(fn){
+  this.state = 'Pending';   //promise的三种状态
+  let _this = this;
+  function resolve (res) {
+    if(_this.state!=='Pending')return;
+    _this.state = 'resolved';
+    myPromise.resolve.call(_this, res);
+  }
+
+  function reject (res) {
+    if(_this.state!=='Pending')return;
+    _this.state = 'reject';
+    myPromise.reject.call(_this, res);
+  }
+
+  fn(resolve, reject);
+}
+
+myPromise.prototype.then = function(resolve, reject){
+  this.cbResolve = resolve;
+  this.cbReject = reject;
+
+  this.nextcbResolve = null;
+  this.nextcbReject = null;
+
+  //返回新的promise，这里有一个技巧是把resolve和reject方法关联到前一个promies，达到连续调用的目的
+  return new myPromise((resolve, reject)=>{
+    this.nextcbResolve = resolve;
+    this.nextcbReject = reject;
+  });
+}
+
+myPromise.prototype.catch = function(resolve){
+  this.cbCatch = resolve;
+
+  this.nextcbResolve = null;
+  this.nextcbReject = null;
+
+  return new myPromise((resolve, reject)=>{
+    this.nextcbResolve = resolve;
+    this.nextcbReject = reject;
+  });
+}
+
+myPromise.prototype.finally = function(resolve, reject){
+  this.cbFinallyResolve = resolve;
+
+  this.nextcbResolve = null;
+
+  return new myPromise((resolve,)=>{
+    this.nextcbResolve = resolve;
+  });
+}
+
+myPromise.resolve = function(res) {
+  setTimeout(function(){
+    try{
+      let p;
+
+      if(this.cbResolve){
+        p = this.cbResolve(res);
+      }else if(this.cbFinallyResolve){
+        p = this.cbFinallyResolve(res)
+      }
+
+      if(Object.prototype.toString.call(p) === '[object Promise]'){
+        p.then = this.then;	
+      }else{
+        if(this.nextcbResolve){
+          this.nextcbResolve(p);
+        }
+      }
+    }catch(e){
+      //如果有reject方法，则先触发，如果有catch方法，再触发
+      if(this.nextcbReject){
+        this.nextcbReject(e);
+      }else if(this.cbCatch){
+        this.cbCatch(p);
+      }
+    }
+  }.bind(this))
+}
+
+myPromise.reject = function(res) {
+  setTimeout(function(){
+    try{
+      let p;
+
+      if(this.cbReject){
+        p = this.cbReject(res);
+      }else if(this.cbCatch){
+        p = this.cbCatch(p);
+      }else if(this.cbFinallyResolve){
+        p = this.cbFinallyResolve(res)
+      }
+
+      if(Object.prototype.toString.call(p) === '[object Promise]'){
+        p.then = this.then;	
+      }else{
+        if(this.nextcbReject){
+          this.nextcbReject(p);
+        }
+      }
+    }catch(e){
+      if(this.nextcbReject){
+        this.nextcbReject(e);
+      }else if(this.cbCatch){
+        this.cbCatch(p);
+      }
+    }
+  }.bind(this))
+}
+
+function request(url){
+  return new myPromise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      resolve('resolve');
+      //reject('reject');
+    }
+      img.src=url;
+  });
+}
+
+var dd = request('https://www.baidu.com/img/bd_logo1.png?where=super').then((res)=>{
+  console.log(1);
+}, (res)=>{
+  console.log(2);
+}).then((res)=>{
+  console.log(3);
+}).catch((res)=>{
+  console.log('catch');
+}).finally((res)=>{
+  console.log('finallyRelve');
+});
+  </script>
+</html>
