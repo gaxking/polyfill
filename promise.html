@@ -14,12 +14,14 @@ function myPromise(fn){
   function resolve (res) {
     if(_this.state!=='Pending')return;
     _this.state = 'resolved';
+    _this.value = res;
     myPromise.resolve.call(_this, res);
   }
 
   function reject (res) {
     if(_this.state!=='Pending')return;
     _this.state = 'reject';
+    _this.value = res;
     myPromise.reject.call(_this, res);
   }
 
@@ -73,11 +75,11 @@ myPromise.resolve = function(res) {
         p = this.cbFinallyResolve(res)
       }
 
-      if(Object.prototype.toString.call(p) === '[object Promise]'){
-        p.then = this.then;	
+      if(Object.prototype.toString.call(p) === '[object Promise]' || p instanceof myPromise){
+        p.nextcbResolve = this.nextcbResolve;
       }else{
         if(this.nextcbResolve){
-          this.nextcbResolve(p);
+          this.nextcbResolve(p || this.value);
         }
       }
     }catch(e){
@@ -104,11 +106,11 @@ myPromise.reject = function(res) {
         p = this.cbFinallyResolve(res)
       }
 
-      if(Object.prototype.toString.call(p) === '[object Promise]'){
-        p.then = this.then;	
+      if(Object.prototype.toString.call(p) === '[object Promise]' || p instanceof myPromise){
+        p.nextcbResolve = this.nextcbResolve;	
       }else{
         if(this.nextcbReject){
-          this.nextcbReject(p);
+          this.nextcbReject(p || this.value);
         }
       }
     }catch(e){
@@ -134,9 +136,11 @@ function request(url){
 
 var dd = request('https://www.baidu.com/img/bd_logo1.png?where=super').then((res)=>{
   console.log(1);
+  return request('https://www.baidu.com/img/bd_logo1.png');
 }, (res)=>{
   console.log(2);
 }).then((res)=>{
+  console.log(res);
   console.log(3);
 }).catch((res)=>{
   console.log('catch');
